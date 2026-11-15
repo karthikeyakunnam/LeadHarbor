@@ -1,0 +1,79 @@
+services:
+  app:
+    build: .
+    env_file:
+      - path: .env
+        format: raw
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_PATH: /app/data/leadharbor.sqlite3
+      SCORING_RULES_PATH: /app/config/scoring.json
+    ports:
+      - 127.0.0.1:8080:8080
+    volumes:
+      - leadharbor_data:/app/data
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 70s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  n8n:
+    profiles: [n8n]
+    image: docker.n8n.io/n8nio/n8n:2.47.7
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Run scripts/setup.py first}
+      N8N_SSRF_PROTECTION_ENABLED: 'true'
+      N8N_SSRF_ALLOWED_HOSTNAMES: app
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+      N8N_COMMUNITY_PACKAGES_ENABLED: 'false'
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_PERSONALIZATION_ENABLED: 'false'
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '168'
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      N8N_PAYLOAD_SIZE_MAX: '1'
+      N8N_METRICS: 'true'
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: Asia/Kolkata
+    ports:
+      - 127.0.0.1:5678:5678
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      app: {condition: service_healthy}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  proxy:
+    profiles: [https]
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  leadharbor_data:
+  n8n_data:
+  caddy_data:
+  caddy_config:

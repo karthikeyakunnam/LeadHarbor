@@ -1,0 +1,16 @@
+{
+  "name": "leadharbor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Durable lead capture, qualification, and follow-through with n8n",
+  "scripts": {
+    "test": "node --test tests/dashboard.test.cjs",
+    "check": "node --check leadharbor/static/app.js"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.1"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  }
+}

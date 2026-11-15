@@ -1,0 +1,18 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# local n8n data / recordings
+.n8n/
+recordings/
+# LeadHarbor runtime and private records
+__pycache__/
+*.py[cod]
+data/
+backups/
+artifacts/
+.venv/
+*.sqlite3*
+.coverage

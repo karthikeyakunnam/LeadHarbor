@@ -1,0 +1,80 @@
+{
+  "name": "LeadHarbor · Automation error handler",
+  "nodes": [
+    {
+      "id": "20d80768-a252-5041-a98b-3fad69dc52e0",
+      "name": "Workflow failure",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "70699c65-77de-53a9-b00c-a9a5b445d4ef",
+      "name": "Record automation failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        280,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8080/api/automation-errors",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({workflow: $json.workflow?.name || \"Unknown\", execution_id: String($json.execution?.id || \"trigger\"), message: \"n8n execution failed; inspect its execution log.\"}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "350d0353-13e4-5423-a1bc-2e7c81aca7f0",
+      "name": "Error handler setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {
+        "content": "## Persist automation failures\nAdd the same ingestion Header Auth credential to the HTTP node. Select this workflow as the Error workflow for your capture workflow.\nThe app exposes these events in Recovery. No raw lead data or model output is sent in the error report.\nIf the app itself is unavailable, use independent uptime monitoring and inspect n8n Executions. Error Trigger does not run for manual test executions.",
+        "width": 700,
+        "height": 230
+      }
+    }
+  ],
+  "connections": {
+    "Workflow failure": {
+      "main": [
+        [
+          {
+            "node": "Record automation failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

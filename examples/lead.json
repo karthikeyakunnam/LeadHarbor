@@ -1,0 +1,8 @@
+{
+  "full_name": "Jane Demo",
+  "email": "jane@example.com",
+  "website_url": "https://example.com",
+  "message": "This is a synthetic inquiry about an automation project. Could we arrange a short call?",
+  "consent": true,
+  "company_fax": ""
+}

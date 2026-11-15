@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.git
+__pycache__
+*.pyc
+data
+backups
+tests
+artifacts
+*.gif
+*.png
+node_modules

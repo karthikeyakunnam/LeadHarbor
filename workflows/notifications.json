@@ -1,0 +1,135 @@
+{
+  "name": "LeadHarbor · Optional team notifications",
+  "nodes": [
+    {
+      "id": "03229158-2a7d-5093-8a01-6f627ddefb24",
+      "name": "LeadHarbor events",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leadharbor-events",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "leadharbor-events"
+    },
+    {
+      "id": "1f7e69de-cd99-5574-95aa-ebece991e33b",
+      "name": "Format event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const event = $input.first().json.body;\nif (!event || typeof event.event_id !== 'string' || !['lead.qualified', 'lead.failed'].includes(event.type)) throw new Error('Invalid LeadHarbor event');\n// Do not interpolate lead text into HTML or Slack mentions. Plain text only.\nconst safe = value => String(value || '').replace(/[<>&]/g, ' ').slice(0, 2000);\nconst text = event.type === 'lead.failed'\n ? `Lead processing needs attention. Lead: ${safe(event.lead_id)}. Issue: ${safe(event.error)}`\n : `New ${safe(event.tier)} lead: ${safe(event.full_name)} (${safe(event.email)})\\nFit: ${event.score}/10. Owner: ${safe(event.owner)}\\n${safe(event.summary)}\\nEvent ID: ${safe(event.event_id)}`;\nreturn [{json:{...event, notification_text:text}}];"
+      }
+    },
+    {
+      "id": "12a37ab4-c305-5d7e-b130-9ec4343b4ba7",
+      "name": "Slack alert (enable after setup)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        560,
+        150
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#leads"
+        },
+        "text": "={{ $json.notification_text }}",
+        "otherOptions": {
+          "mrkdwn": false
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "ffc6f00a-4fbe-532e-93f6-9f75eaf0f0dd",
+      "name": "Team email (enable after setup)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        350
+      ],
+      "parameters": {
+        "fromEmail": "leads@yourcompany.com",
+        "toEmail": "sales@yourcompany.com",
+        "subject": "=LeadHarbor: {{ $json.type }}",
+        "emailFormat": "text",
+        "text": "={{ $json.notification_text }}",
+        "options": {}
+      },
+      "disabled": true
+    },
+    {
+      "id": "26040076-8067-5a0d-b047-39f91dfa2b8c",
+      "name": "Notification setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -150
+      ],
+      "parameters": {
+        "content": "## Optional team notifications\nSet the Webhook Header Auth credential: Authorization = Bearer <EVENT_WEBHOOK_TOKEN>.\nPublish before setting EVENT_WEBHOOK_URL in the app.\nChoose ONE notification branch or wire independent subworkflows. Nodes are disabled until you add credentials. Delivery errors must fail this workflow so the outbox retries.\n\nDelivery is at least once. event_id / Idempotency-Key is stable across retries. This starter does NOT promise exactly-once Slack/email delivery; add receiver-side deduplication for your destination. A crash after a send can cause a duplicate alert.\n\nNever send the suggested first reply automatically. Approval and sending are separate human actions.",
+        "width": 900,
+        "height": 270
+      }
+    }
+  ],
+  "connections": {
+    "LeadHarbor events": {
+      "main": [
+        [
+          {
+            "node": "Format event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format event": {
+      "main": [
+        [
+          {
+            "node": "Slack alert (enable after setup)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Team email (enable after setup)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

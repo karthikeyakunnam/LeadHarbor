@@ -1,0 +1,36 @@
+{
+  "about_us": "We help startups and small businesses finish, deploy, and maintain software products, AI features, and workflow automations.",
+  "ideal_customer": "A business with a specific engineering need, a realistic budget, and a clear timeline.",
+  "hot_threshold": 8,
+  "warm_threshold": 5,
+  "default_owner": "Unassigned",
+  "hot_owner": "Sales",
+  "follow_up_hours": {
+    "hot": 4,
+    "warm": 24,
+    "cold": 72,
+    "review": 24
+  },
+  "keyword_adjustments": [
+    {
+      "label": "Urgent project",
+      "keywords": [
+        "urgent",
+        "this week",
+        "asap"
+      ],
+      "points": 1
+    },
+    {
+      "label": "Job inquiry",
+      "keywords": [
+        "seeking a job",
+        "job application",
+        "my resume"
+      ],
+      "points": -3
+    }
+  ],
+  "max_daily_ai_calls": 500,
+  "privacy_contact": "your business contact listed on this website"
+}

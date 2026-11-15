@@ -1,0 +1,197 @@
+{
+  "name": "LeadHarbor · Durable lead capture",
+  "nodes": [
+    {
+      "id": "8deaa856-23cb-5352-914e-7ce3c584cd26",
+      "name": "Lead form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "formTitle": "Let’s talk · LeadHarbor",
+        "formDescription": "Tell us about your project. Your message is saved before enrichment starts. We process your message and public company website with our configured AI provider to prepare a reply. Records are retained for 90 days by default; contact our team for access or deletion. Replace this notice with your business contact and configured retention before publishing.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full name",
+              "requiredField": true,
+              "placeholder": "Jane Doe"
+            },
+            {
+              "fieldLabel": "Work email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company website",
+              "placeholder": "company.com (optional)"
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Privacy acknowledgment",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "I acknowledge the privacy notice and agree to processing for this inquiry."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "path": "leadharbor",
+          "buttonLabel": "Send your message"
+        }
+      },
+      "webhookId": "leadharbor-form"
+    },
+    {
+      "id": "9bcc24c6-0a34-52b3-9240-3dfbcb476e35",
+      "name": "Prepare durable submission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        240
+      ],
+      "parameters": {
+        "jsCode": "// Enable only the crypto builtin (included in compose.yml). No external modules required.\nconst { createHash } = require('crypto');\nconst form = $input.first().json;\nif (!form.submittedAt) throw new Error('Missing original submission timestamp; refuse an unstable retry key.');\nconst payload = {\n  full_name: form['Full name'], email: form['Work email'],\n  website_url: form['Company website'] || '', message: form['Message'],\n  consent: form['Privacy acknowledgment'] === 'I acknowledge the privacy notice and agree to processing for this inquiry.',\n};\nif (!payload.consent) throw new Error('Privacy acknowledgment is required.');\nconst key = createHash('sha256').update(JSON.stringify([form.submittedAt, payload])).digest('hex');\nreturn [{json: {payload, submission_key: 'n8n-' + key}}];"
+      }
+    },
+    {
+      "id": "d082f42f-4b6b-5ead-9ec9-8cf2eedac52b",
+      "name": "Save submission durably",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        520,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://app:8080/api/leads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.submission_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 10000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "be0bedb5-8178-5ff1-b165-1c60407bf693",
+      "name": "Confirm receipt",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        800,
+        240
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Thanks for saying hello!",
+        "completionMessage": "Your message has been saved. Our team will review it and get back to you.",
+        "options": {
+          "formTitle": "Message received · LeadHarbor"
+        }
+      },
+      "webhookId": "leadharbor-thanks"
+    },
+    {
+      "id": "8360ca29-5d1d-5364-8ed3-e5a09855043d",
+      "name": "Setup & architecture",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {
+        "content": "## LeadHarbor · Save first, enrich in the background\n1. Start the app service.\n2. Set the HTTP Header Auth credential on Save submission durably: Authorization = Bearer <INGEST_TOKEN>.\n3. Docker uses http://app:8080. For n8n Cloud, use your HTTPS app origin.\n4. Customize the privacy notice and publish the form.\n5. Set this workflow’s Error workflow to the imported LeadHarbor error handler.\n\nThe durable service handles validation, idempotency, safe website fetching, strict AI output, retries, CRM, and the dashboard. Receipt is confirmed only after the database commits.\n\nNo credentials are embedded. See docs/N8N.md. For Docker, the internal app hostname is narrowly allowlisted for n8n SSRF protection.",
+        "width": 1100,
+        "height": 270
+      }
+    }
+  ],
+  "connections": {
+    "Lead form": {
+      "main": [
+        [
+          {
+            "node": "Prepare durable submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare durable submission": {
+      "main": [
+        [
+          {
+            "node": "Save submission durably",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save submission durably": {
+      "main": [
+        [
+          {
+            "node": "Confirm receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
